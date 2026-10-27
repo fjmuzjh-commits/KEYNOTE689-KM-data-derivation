@@ -1,42 +1,57 @@
-# KEYNOTE-689 Kaplan–Meier data derivation
+# KEYNOTE-689 survival data and reconstruction code
 
-This repository provides digitized published Kaplan–Meier (KM) coordinates, numbers at risk, and reproducible pseudo-individual patient data (pseudo-IPD) reconstruction for the three populations analyzed in the KEYNOTE-689 cost–utility study. It does **not** contain individual participant data from the trial.
+This repository provides the digitized Kaplan–Meier (KM) data, reported numbers at risk, R reconstruction code, and comparison plots for event-free survival (EFS) and overall survival (OS) in three KEYNOTE-689 populations. It supports inspection of the published survival evidence and reconstruction of approximate individual time-to-event observations (pseudo-IPD).
 
-## Published source
+## Clinical data source
 
-Uppaluri R, et al. *Neoadjuvant and Adjuvant Pembrolizumab in Locally Advanced Head and Neck Cancer.* N Engl J Med. 2025;393:37–50. DOI: [10.1056/NEJMoa2415434](https://doi.org/10.1056/NEJMoa2415434). The source figures are cited rather than redistributed here.
+Uppaluri R, et al. *Neoadjuvant and Adjuvant Pembrolizumab in Locally Advanced Head and Neck Cancer.* N Engl J Med. 2025;393:37–50. DOI: [10.1056/NEJMoa2415434](https://doi.org/10.1056/NEJMoa2415434).
 
-| Population | EFS source | OS source | Pembrolizumab plus standard care | Standard care |
+| Population | EFS curve | OS curve | Pembrolizumab plus standard care, n | Standard care, n |
 |---|---|---|---:|---:|
 | PD-L1 CPS ≥10 | Figure 1A | Figure 2A | 234 | 231 |
 | PD-L1 CPS ≥1 | Figure 1B | Figure 2B | 347 | 335 |
 | All participants | Figure 1C | Figure 2C | 363 | 351 |
 
-Each population folder contains `km.xlsx`, the archived digitized coordinates and numbers at risk, and `km_adj.xlsx`, the archived coordinates after time sorting and non-increasing survival adjustment. Each workbook has four sheets: `PFS_TG`, `PFS_CG`, `OS_TG`, and `OS_CG`. Here **`PFS` is a legacy filename label for the trial's EFS endpoint**, `TG` represents pembrolizumab plus standard care, and `CG` represents standard care. `time` and `trisk` are measured in months; `surv` is a proportion between 0 and 1.
+The data are derived from the published figures and risk tables. Pseudo-IPD are reconstructed observations rather than the trial participants' original records.
 
-## Rebuild the pseudo-IPD
+## Reconstruction method
 
-Install R packages `openxlsx`, `IPDfromKM`, `survival`, and `ggplot2`, then run:
+The reconstruction uses the published KM coordinates and numbers at risk with `IPDfromKM::preprocess()` and `IPDfromKM::getIPD()`. Survival probabilities are recorded on the 0–1 scale, with `maxy = 1`. KM curves estimated from the reconstructed observations are compared with the digitized coordinates.
+
+Methodological references:
+
+- Guyot P, et al. *Enhanced secondary analysis of survival data: reconstructing the data from published Kaplan–Meier survival curves.* BMC Med Res Methodol. 2012;12:9. [doi:10.1186/1471-2288-12-9](https://doi.org/10.1186/1471-2288-12-9).
+- Liu N, Zhou Y, Lee JJ. *IPDfromKM: reconstruct individual patient data from published Kaplan–Meier survival curves.* BMC Med Res Methodol. 2021;21:111. [doi:10.1186/s12874-021-01308-8](https://doi.org/10.1186/s12874-021-01308-8).
+
+## Files and labels
+
+| File or folder | Contents |
+|---|---|
+| `CPS-10/`, `CPS-1/`, `Total population/` | Population-specific digitized data (`km.xlsx`) and adjusted coordinates (`km_adj.xlsx`) |
+| `rebuild_pseudo_ipd.R` | R script that reads `km_adj.xlsx` and generates the files in `derived/` |
+| `derived/digitized_km_coordinates.csv` | Coordinates and risk tables for all 12 curves |
+| `derived/reconstructed_pseudo_ipd.csv` | Reconstructed event or censoring times, event indicators, population, and treatment labels |
+| `derived/reconstruction_check.csv` | Sample sizes, event counts, 36-month survival estimates, and pointwise KM comparison measures |
+| `derived/KM_reconstruction_validation.png` and `.pdf` | Digitized points overlaid with KM curves estimated from pseudo-IPD |
+| `archived_model_inputs/` | Saved distribution selections, fitted-survival tables, and transition-probability tables |
+| `get_prob1_archived.R` | Archived function documenting the transition-probability calculations |
+
+Each KM workbook contains `PFS_TG`, `PFS_CG`, `OS_TG`, and `OS_CG`. In these filenames, `PFS` denotes the trial's **EFS** endpoint; `TG` denotes pembrolizumab plus standard care (PSOC), and `CG` denotes standard care (SOC). The columns `time` and `trisk` are in months, and `surv` is a survival proportion.
+
+## Run the reconstruction
+
+Install R packages `openxlsx`, `IPDfromKM`, `survival`, and `ggplot2`. From the repository directory, run:
 
 ```sh
 Rscript rebuild_pseudo_ipd.R
 ```
 
-The script reads the archived adjusted KM coordinates and their risk tables, uses `IPDfromKM::preprocess(..., maxy = 1)` and `getIPD()`, and writes:
+The script generates the CSV files and PNG/PDF plots in `derived/`. Reconstructed sample sizes match the published baseline risk counts. Event counts and survival estimates are approximate; the numerical comparisons and curve overlays are provided for inspection, including the sparsely populated late follow-up period.
 
-- `derived/digitized_km_coordinates.csv`: all 12 digitized curves and risk tables in long format;
-- `derived/reconstructed_pseudo_ipd.csv`: independently regenerated pseudo-IPD for EFS and OS, two arms, three populations;
-- `derived/reconstruction_check.csv`: sample sizes, reconstructed event counts, and pointwise KM differences;
-- `derived/KM_reconstruction_validation.png` and `.pdf`: digitized points overlaid with KM curves estimated from the reconstructed pseudo-IPD.
+## Archived model files
 
-The regenerated pseudo-IPD was checked row by row against all 12 archived `IPD_*.xlsx` files outside this repository. All 12 matched at a numerical tolerance of `1e-8`. The reconstructed sample sizes equal the published baseline numbers at risk. Reconstructed event counts are approximate: for example, EFS events in the CPS ≥1 population are 129 and 157 versus 128 and 156 reported in the article. The largest pointwise discrepancies occur near 60 months, when very few participants remain at risk; consult the validation figure and `reconstruction_check.csv` before interpreting the tail.
+The archive contains `最佳分布.xlsx` (selected distributions), `surv_*.xlsx` (fitted-survival tables), and `TG_prob1.xlsx` / `CG_prob1.xlsx` (transition-probability tables). These are saved historical inputs, supplied separately from the outputs generated by the reconstruction script.
 
-## Scope of reproducibility
+For CPS ≥1, the saved pre-fit life tables match a separate TXT reconstruction branch with baseline risk counts that differ from this subgroup's published counts; they do not match the population-specific XLSX pseudo-IPD reconstructed here. This source distinction should be retained when interpreting the archived fits.
 
-The `archived_model_inputs/` folder also preserves, for each population, the selected survival-model distributions (`最佳分布.xlsx`), fitted survival tables (`surv_*.xlsx`), and transition tables used by the economic model (`TG_prob1.xlsx` and `CG_prob1.xlsx`). `get_prob1_archived.R` is the original probability-generation function. Its output tables were independently checked against the archived selected curves and 2021 U.S. both-sex Human Mortality Database life table, using 21-day cycles, ages 60/61 years, and a 30-year probability-generation horizon. The economic base case used the first 346 cycles.
-
-In that function, EFS retention is derived from consecutive fitted EFS survival probabilities, `S_EFS(t)/S_EFS(t−1)`. EFS-to-death uses the age-specific background probability `1−(1−qx)^(21/365.24)`, and EFS-to-PD is the remaining row probability. Consecutive OS survival probabilities and a 1,000-person accounting cohort are used to infer PD-to-death; PD-to-PD is its complement. The code clips invalid probabilities to the `[0,1]` interval. The resulting time-varying transition matrix is used in a three-state cohort Markov model. These are **model-derived** transitions, not transition counts directly observed in KEYNOTE-689.
-
-The archived function uses external life-table paths and global distribution selectors, so it is supplied to document the historical formula rather than as a standalone executable. The life-table source itself is not redistributed here.
-
-**Provenance boundary:** this release independently reproduces the **published KM figure → digitized coordinates and risk table → pseudo-IPD** portion. It does not independently regenerate the archived parametric survival fits from those pseudo-IPD files. In particular, the stored CPS ≥1 pre-fit life tables match a separate archived TXT pseudo-IPD branch whose baseline numbers at risk differ from CPS ≥1; they do not match the population-specific XLSX pseudo-IPD reproduced here. The archived survival and transition files are therefore identified as historical model inputs, not outputs of `rebuild_pseudo_ipd.R`. The package does not establish that the original economic base case follows from the newly reconstructed pseudo-IPD.
+`get_prob1_archived.R` documents EFS retention from consecutive fitted EFS probabilities, background-mortality-based EFS-to-death probabilities, residual EFS-to-PD probabilities, and OS-based accounting for PD-to-death probabilities. It uses external mortality-table paths and distribution selectors. The archived probability-generation settings use 21-day cycles over 30 years; the economic base case uses the first 346 cycles. Running `rebuild_pseudo_ipd.R` produces the reconstruction outputs listed above, rather than refitting or updating these archived model files.
