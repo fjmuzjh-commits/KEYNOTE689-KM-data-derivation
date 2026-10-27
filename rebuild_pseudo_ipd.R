@@ -1,5 +1,4 @@
 # Independent reconstruction of pseudo-IPD from saved KEYNOTE-689 KM coordinates.
-# This script does not reproduce the archived survival-model fits or economic base case.
 
 Sys.setlocale("LC_ALL", "Chinese_China.utf8")
 suppressPackageStartupMessages(library(openxlsx))
